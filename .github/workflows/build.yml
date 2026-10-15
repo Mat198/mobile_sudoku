@@ -1,0 +1,51 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Build APK
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/release/app-release.apk sudoku.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sudoku-apk
+          path: sudoku.apk
+
+      # A rolling "latest" release so the APK can be downloaded straight from the phone.
+      - name: Publish latest release
+        if: github.ref_type == 'branch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="latest-${GITHUB_REF_NAME//\//-}"
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" sudoku.apk \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Sudoku ($GITHUB_REF_NAME)" \
+            --notes "Built from $GITHUB_SHA. Download sudoku.apk on your phone and open it to install."
