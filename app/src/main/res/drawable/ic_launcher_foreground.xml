@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A small 3x3 grid with a digit, in ink on paper. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#1B1B1B"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M33,33 L75,33 L75,75 L33,75 Z" />
+    <path
+        android:strokeColor="#1B1B1B"
+        android:strokeWidth="1.5"
+        android:pathData="M47,33 L47,75 M61,33 L61,75 M33,47 L75,47 M33,61 L75,61" />
+    <path
+        android:fillColor="#1F4FA8"
+        android:pathData="M52,50.5 L56,48.5 L56.5,48.5 L56.5,58 L55,58 L55,50.5 L52.3,51.8 Z" />
+</vector>
