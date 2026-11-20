@@ -28,9 +28,9 @@ A hardcore, ad-free, offline Sudoku for Android: pen and paper only, no hints.
 - **Clock**, **Undo** (reverse), **Redo**, **Erase**, **Clear** (wipes everything you wrote,
   with confirmation; undoable) and a **Pen / Notes switch**.
 - **Custom games**: type in a puzzle (at least 17 digits, e.g. from a newspaper or book), tap
-  *Done* and the app checks it: no repeated digits and at least one solution. Name it and it is
-  saved to your list to play again any time. Puzzles with more than one solution are allowed
-  (with a warning); any grid that follows the rules then counts as solved.
+  *Done* and the app checks it: no repeated digits and exactly one solution. If several
+  solutions exist it asks you to add more digits. Name it and it is saved to your list to play
+  again any time.
 - **Night theme**: a dim, low-glare palette for playing in the dark. The menu's *Theme* button
   cycles System / Paper / Night.
 - Portrait layout tuned for the Redmi Note 13 (1080×2400). Screen stays on during a game.

@@ -92,13 +92,12 @@ class AnalyzeTest {
     }
 
     @Test
-    fun multipleSolutionsStillPlayable() {
+    fun multipleSolutionsAreRejected() {
         val solution = Solver.solve(seed)!!
         // Keep the first 30 cells of the solution: far from unique.
         val g = IntArray(81) { if (it < 30) solution[it] else 0 }
         val a = Solver.analyze(g)
         assertEquals(Verdict.MULTIPLE_SOLUTIONS, a.verdict)
-        assertTrue(a.playable)
-        assertTrue(Solver.isValidSolution(a.solution!!))
+        assertEquals(false, a.playable)
     }
 }

@@ -45,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mat198.sudoku.engine.Difficulty
 import com.mat198.sudoku.engine.MIN_CLUES
-import com.mat198.sudoku.engine.Verdict
 import com.mat198.sudoku.game.CheckResult
 import com.mat198.sudoku.game.CustomPuzzle
 import com.mat198.sudoku.game.GameViewModel
@@ -487,11 +486,6 @@ private fun EditorScreen(vm: GameViewModel) {
         if (analysis.playable) {
             NameDialog(
                 initial = remember(analysis) { vm.defaultCustomName() },
-                warning = if (analysis.verdict == Verdict.MULTIPLE_SOLUTIONS) {
-                    GameViewModel.verdictMessage(analysis.verdict)
-                } else {
-                    null
-                },
                 onSave = vm::saveCustomAndPlay,
                 onDismiss = vm::dismissAnalysis,
             )
@@ -509,20 +503,15 @@ private fun EditorScreen(vm: GameViewModel) {
 @Composable
 private fun NameDialog(
     initial: String,
-    warning: String?,
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Puzzle is solvable") },
+        title = { Text("Puzzle has a unique solution") },
         text = {
             Column {
-                if (warning != null) {
-                    Text(warning, color = LocalInk.current.error, fontSize = 14.sp)
-                    Spacer(Modifier.height(12.dp))
-                }
                 Text("Give it a name to save it to your custom games.")
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(

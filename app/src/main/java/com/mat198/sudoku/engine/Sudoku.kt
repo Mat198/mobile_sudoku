@@ -20,7 +20,8 @@ const val MIN_CLUES = 17
 enum class Verdict { TOO_FEW_CLUES, CONFLICT, NO_SOLUTION, MULTIPLE_SOLUTIONS, UNIQUE }
 
 class Analysis(val verdict: Verdict, val solution: IntArray?) {
-    val playable: Boolean get() = solution != null
+    /** Only puzzles with exactly one solution can be saved and played. */
+    val playable: Boolean get() = verdict == Verdict.UNIQUE
 }
 
 object Solver {

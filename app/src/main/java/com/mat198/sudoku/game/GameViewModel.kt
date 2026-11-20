@@ -268,7 +268,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Saves the verified editor grid under [name] and starts playing it. */
     fun saveCustomAndPlay(name: String) {
-        val analysis = editorAnalysis ?: return
+        val analysis = editorAnalysis?.takeIf { it.playable } ?: return
         val solution = analysis.solution ?: return
         val puzzle = CustomPuzzle(
             id = System.currentTimeMillis(),
@@ -353,7 +353,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             Verdict.CONFLICT -> "A digit repeats in a row, column or box."
             Verdict.NO_SOLUTION -> "This puzzle has no solution."
             Verdict.MULTIPLE_SOLUTIONS ->
-                "This puzzle has more than one solution. Any grid that follows the rules will count as solved."
+                "This puzzle has more than one solution. Add more digits to make the solution unique."
             Verdict.UNIQUE -> "This puzzle has exactly one solution."
         }
     }
