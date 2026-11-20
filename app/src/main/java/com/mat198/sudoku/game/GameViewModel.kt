@@ -212,6 +212,10 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     var editorBusy by mutableStateOf(false)
         private set
 
+    /** Cells to highlight after "Done" found several solutions; cleared on the next edit. */
+    var editorAmbiguous by mutableStateOf<Set<Int>>(emptySet())
+        private set
+
     /** Result of pressing "Done" in the editor; drives the error / naming dialogs. */
     var editorAnalysis by mutableStateOf<Analysis?>(null)
         private set
@@ -222,6 +226,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         editorGrid.fill(0)
         editorSelected = -1
         editorAnalysis = null
+        editorAmbiguous = emptySet()
         editorVersion++
         screen = Screen.EDITOR
     }
@@ -233,17 +238,22 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     fun editorInput(digit: Int) {
         if (editorSelected < 0) return
         editorGrid[editorSelected] = if (editorGrid[editorSelected] == digit) 0 else digit
-        editorVersion++
+        editorEdited()
     }
 
     fun editorErase() {
         if (editorSelected < 0 || editorGrid[editorSelected] == 0) return
         editorGrid[editorSelected] = 0
-        editorVersion++
+        editorEdited()
     }
 
     fun editorClear() {
         editorGrid.fill(0)
+        editorEdited()
+    }
+
+    private fun editorEdited() {
+        editorAmbiguous = emptySet()
         editorVersion++
     }
 
@@ -252,7 +262,12 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         editorBusy = true
         val grid = editorGrid.copyOf()
         viewModelScope.launch {
-            editorAnalysis = withContext(Dispatchers.Default) { Solver.analyze(grid) }
+            val analysis = withContext(Dispatchers.Default) { Solver.analyze(grid) }
+            // Ignore the result if the grid was edited while it was being checked.
+            if (grid.contentEquals(editorGrid)) {
+                editorAnalysis = analysis
+                editorAmbiguous = analysis.ambiguous
+            }
             editorBusy = false
         }
     }
@@ -353,7 +368,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             Verdict.CONFLICT -> "A digit repeats in a row, column or box."
             Verdict.NO_SOLUTION -> "This puzzle has no solution."
             Verdict.MULTIPLE_SOLUTIONS ->
-                "This puzzle has more than one solution. Add more digits to make the solution unique."
+                "This puzzle has more than one solution. The highlighted cells can still take different " +
+                    "digits: add digits in or around them to make the solution unique."
             Verdict.UNIQUE -> "This puzzle has exactly one solution."
         }
     }

@@ -430,6 +430,7 @@ private fun EditorScreen(vm: GameViewModel) {
             selected = vm.editorSelected,
             onSelect = vm::editorSelect,
             modifier = Modifier.weight(1f, fill = false),
+            highlighted = vm.editorAmbiguous,
         )
 
         Box(
@@ -438,9 +439,14 @@ private fun EditorScreen(vm: GameViewModel) {
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
+            val open = vm.editorAmbiguous.size
             Text(
-                "Enter the given digits (at least $MIN_CLUES), then tap Done.",
-                color = ink.pencil,
+                if (open > 0) {
+                    "$open highlighted cells can still take more than one digit."
+                } else {
+                    "Enter the given digits (at least $MIN_CLUES), then tap Done."
+                },
+                color = if (open > 0) ink.error else ink.pencil,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
             )

@@ -34,6 +34,7 @@ fun Board(
     selected: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    highlighted: Set<Int> = emptySet(),
 ) {
     val ink = LocalInk.current
     val measurer = rememberTextMeasurer()
@@ -61,6 +62,10 @@ fun Board(
         // Reading `version` ties redraws to edits of the game's (mutable) arrays.
         check(version >= 0)
         val cell = size.width / 9f
+
+        for (i in highlighted) {
+            drawRect(ink.ambiguous, topLeft = Offset((i % 9) * cell, (i / 9) * cell), size = Size(cell, cell))
+        }
 
         if (selected >= 0) {
             drawRect(

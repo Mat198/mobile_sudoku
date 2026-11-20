@@ -19,7 +19,12 @@ const val MIN_CLUES = 17
 
 enum class Verdict { TOO_FEW_CLUES, CONFLICT, NO_SOLUTION, MULTIPLE_SOLUTIONS, UNIQUE }
 
-class Analysis(val verdict: Verdict, val solution: IntArray?) {
+class Analysis(
+    val verdict: Verdict,
+    val solution: IntArray?,
+    /** For [Verdict.MULTIPLE_SOLUTIONS]: empty cells whose digit differs between solutions. */
+    val ambiguous: Set<Int> = emptySet(),
+) {
     /** Only puzzles with exactly one solution can be saved and played. */
     val playable: Boolean get() = verdict == Verdict.UNIQUE
 }
@@ -60,8 +65,33 @@ object Solver {
         if (grid.count { it != 0 } < minClues) return Analysis(Verdict.TOO_FEW_CLUES, null)
         if (hasConflict(grid)) return Analysis(Verdict.CONFLICT, null)
         val solution = solve(grid) ?: return Analysis(Verdict.NO_SOLUTION, null)
-        val verdict = if (countSolutions(grid, 2) > 1) Verdict.MULTIPLE_SOLUTIONS else Verdict.UNIQUE
-        return Analysis(verdict, solution)
+        if (countSolutions(grid, 2) == 1) return Analysis(Verdict.UNIQUE, solution)
+        return Analysis(Verdict.MULTIPLE_SOLUTIONS, solution, ambiguousCells(grid, solution))
+    }
+
+    /**
+     * Empty cells that can hold more than one digit across all solutions of [grid].
+     * [solution] is any one solution. Only says *where* the puzzle is open, never which digit
+     * belongs anywhere.
+     */
+    fun ambiguousCells(grid: IntArray, solution: IntArray): Set<Int> {
+        val ambiguous = mutableSetOf<Int>()
+        val work = grid.copyOf()
+        for (cell in 0 until 81) {
+            if (grid[cell] != 0 || cell in ambiguous) continue
+            for (d in 1..9) {
+                if (d == solution[cell]) continue
+                work[cell] = d
+                val other = solve(work)
+                work[cell] = 0
+                if (other != null) {
+                    // Every cell where this other solution differs is ambiguous too.
+                    for (i in 0 until 81) if (other[i] != solution[i]) ambiguous += i
+                    break
+                }
+            }
+        }
+        return ambiguous
     }
 
     /** Returns the first solution found, or null if the grid is unsolvable. */

@@ -99,5 +99,35 @@ class AnalyzeTest {
         val a = Solver.analyze(g)
         assertEquals(Verdict.MULTIPLE_SOLUTIONS, a.verdict)
         assertEquals(false, a.playable)
+        assertTrue(a.ambiguous.isNotEmpty())
+        assertTrue(a.ambiguous.all { g[it] == 0 })
+    }
+
+    @Test
+    fun ambiguousCellsAreExactlyTheOnesThatVary() {
+        // The design from the chat: full centre box, clues in the corners and diagonals.
+        val g = Generator.parse(
+            "100000002060000070002000300000123000000456000000789000001000900050000080400000003"
+        )
+        val a = Solver.analyze(g)
+        assertEquals(Verdict.MULTIPLE_SOLUTIONS, a.verdict)
+        // Brute-force check on a few cells: a cell is ambiguous iff some solution differs there.
+        for (cell in a.ambiguous.take(5)) {
+            val alt = (1..9).any { d ->
+                d != a.solution!![cell] && Solver.solve(g.copyOf().also { it[cell] = d }) != null
+            }
+            assertTrue(alt)
+        }
+        for (cell in (0 until 81).filter { g[it] == 0 && it !in a.ambiguous }) {
+            val alt = (1..9).any { d ->
+                d != a.solution!![cell] && Solver.solve(g.copyOf().also { it[cell] = d }) != null
+            }
+            assertEquals("cell $cell", false, alt)
+        }
+    }
+
+    @Test
+    fun uniquePuzzleHasNoAmbiguousCells() {
+        assertTrue(Solver.analyze(seed).ambiguous.isEmpty())
     }
 }

@@ -20,6 +20,8 @@ data class Palette(
     val gridThick: Color,
     val selection: Color,
     val error: Color,
+    /** Editor only: cells a custom puzzle leaves open. */
+    val ambiguous: Color,
 )
 
 val PaperPalette = Palette(
@@ -31,6 +33,7 @@ val PaperPalette = Palette(
     gridThick = Color(0xFF2B2B2B),
     selection = Color(0x332F6FDB),
     error = Color(0xFFA32020),
+    ambiguous = Color(0x55E0A030),
 )
 
 /** Low-glare night palette: dim warm greys, no pure white, softened blue ink. */
@@ -43,6 +46,7 @@ val NightPalette = Palette(
     gridThick = Color(0xFFA9A396),
     selection = Color(0x403F6FCF),
     error = Color(0xFFE07A7A),
+    ambiguous = Color(0x55C08020),
 )
 
 val LocalInk = staticCompositionLocalOf { PaperPalette }
