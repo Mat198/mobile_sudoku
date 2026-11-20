@@ -1,0 +1,4 @@
+<resources>
+    <!-- Window background while the app starts, when the phone is in dark mode. -->
+    <color name="paper">#141311</color>
+</resources>

@@ -4,7 +4,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -18,7 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mat198.sudoku.game.Game
 
 /**
  * The grid. Deliberately plain: only the selected cell is marked. No highlighting of
@@ -26,20 +27,24 @@ import com.mat198.sudoku.game.Game
  */
 @Composable
 fun Board(
-    game: Game,
+    values: IntArray,
+    notes: IntArray?,
+    isGiven: (Int) -> Boolean,
     version: Int,
     selected: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val ink = LocalInk.current
     val measurer = rememberTextMeasurer()
-    val styles = remember {
+    val styles = remember(ink) {
         BoardStyles(
-            given = TextStyle(color = Ink.given, fontSize = 26.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif),
-            pen = TextStyle(color = Ink.pen, fontSize = 26.sp, fontFamily = FontFamily.Serif),
-            note = TextStyle(color = Ink.pencil, fontSize = 11.sp, fontFamily = FontFamily.SansSerif),
+            given = TextStyle(color = ink.given, fontSize = 26.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif),
+            pen = TextStyle(color = ink.pen, fontSize = 26.sp, fontFamily = FontFamily.Serif),
+            note = TextStyle(color = ink.pencil, fontSize = 11.sp, fontFamily = FontFamily.SansSerif),
         )
     }
+    val select by rememberUpdatedState(onSelect)
 
     Canvas(
         modifier
@@ -49,7 +54,7 @@ fun Board(
                     val cellSize = size.width / 9f
                     val c = (pos.x / cellSize).toInt().coerceIn(0, 8)
                     val r = (pos.y / cellSize).toInt().coerceIn(0, 8)
-                    onSelect(r * 9 + c)
+                    select(r * 9 + c)
                 }
             }
     ) {
@@ -59,7 +64,7 @@ fun Board(
 
         if (selected >= 0) {
             drawRect(
-                Ink.selection,
+                ink.selection,
                 topLeft = Offset((selected % 9) * cell, (selected / 9) * cell),
                 size = Size(cell, cell),
             )
@@ -68,13 +73,14 @@ fun Board(
         for (i in 0 until 81) {
             val x = (i % 9) * cell
             val y = (i / 9) * cell
-            val v = game.values[i]
+            val v = values[i]
+            val n = notes?.get(i) ?: 0
             when {
-                v != 0 -> drawCentered(measurer, "$v", if (game.isGiven(i)) styles.given else styles.pen, x, y, cell, cell)
-                game.notes[i] != 0 -> {
+                v != 0 -> drawCentered(measurer, "$v", if (isGiven(i)) styles.given else styles.pen, x, y, cell, cell)
+                n != 0 -> {
                     val sub = cell / 3f
                     for (d in 1..9) {
-                        if (game.notes[i] and (1 shl d) == 0) continue
+                        if (n and (1 shl d) == 0) continue
                         val nx = x + ((d - 1) % 3) * sub
                         val ny = y + ((d - 1) / 3) * sub
                         drawCentered(measurer, "$d", styles.note, nx, ny, sub, sub)
@@ -88,13 +94,13 @@ fun Board(
         for (k in 0..9) {
             if (k % 3 == 0) continue
             val p = k * cell
-            drawLine(Ink.gridThin, Offset(p, 0f), Offset(p, size.height), thin)
-            drawLine(Ink.gridThin, Offset(0f, p), Offset(size.width, p), thin)
+            drawLine(ink.gridThin, Offset(p, 0f), Offset(p, size.height), thin)
+            drawLine(ink.gridThin, Offset(0f, p), Offset(size.width, p), thin)
         }
         for (k in 0..3) {
             val p = (k * 3 * cell).coerceIn(thick / 2, size.width - thick / 2)
-            drawLine(Ink.gridThick, Offset(p, 0f), Offset(p, size.height), thick)
-            drawLine(Ink.gridThick, Offset(0f, p), Offset(size.width, p), thick)
+            drawLine(ink.gridThick, Offset(p, 0f), Offset(p, size.height), thick)
+            drawLine(ink.gridThick, Offset(0f, p), Offset(size.width, p), thick)
         }
     }
 }

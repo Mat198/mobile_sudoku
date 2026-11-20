@@ -10,8 +10,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.mat198.sudoku.engine.Analysis
 import com.mat198.sudoku.engine.Difficulty
 import com.mat198.sudoku.engine.Generator
+import com.mat198.sudoku.engine.Puzzle
+import com.mat198.sudoku.engine.Solver
+import com.mat198.sudoku.engine.Verdict
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -19,9 +23,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class Screen { MENU, DIFFICULTY, GAME }
+enum class Screen { MENU, DIFFICULTY, GAME, CUSTOM_LIST, EDITOR }
 
 enum class CheckResult { NONE, WRONG, SOLVED }
+
+enum class ThemeMode(val label: String) { SYSTEM("System"), PAPER("Paper"), NIGHT("Night") }
 
 class GameViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("sudoku", Context.MODE_PRIVATE)
@@ -36,6 +42,10 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     var hasSavedGame by mutableStateOf(prefs.contains(KEY_GAME))
         private set
     var generating by mutableStateOf(false)
+        private set
+    var theme by mutableStateOf(
+        runCatching { ThemeMode.valueOf(prefs.getString(KEY_THEME, null)!!) }.getOrDefault(ThemeMode.SYSTEM)
+    )
         private set
 
     /** Bumped on every edit so the board redraws (the game's arrays are mutated in place). */
@@ -54,8 +64,14 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     private var clockJob: Job? = null
     private var runningSince = 0L
 
+    // --- navigation ----------------------------------------------------------
+
     fun showDifficulty() {
         screen = Screen.DIFFICULTY
+    }
+
+    fun showCustomGames() {
+        screen = Screen.CUSTOM_LIST
     }
 
     fun backToMenu() {
@@ -63,6 +79,17 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         save()
         screen = Screen.MENU
     }
+
+    fun backToCustomList() {
+        screen = Screen.CUSTOM_LIST
+    }
+
+    fun cycleTheme() {
+        theme = ThemeMode.entries[(theme.ordinal + 1) % ThemeMode.entries.size]
+        prefs.edit().putString(KEY_THEME, theme.name).apply()
+    }
+
+    // --- starting games ------------------------------------------------------
 
     fun continueGame() {
         val json = prefs.getString(KEY_GAME, null) ?: return
@@ -86,6 +113,11 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun playCustom(puzzle: CustomPuzzle) {
+        open(Game(puzzle.name, Puzzle(puzzle.givens.copyOf(), puzzle.solution.copyOf())))
+        save()
+    }
+
     private fun open(g: Game) {
         game = g
         selected = -1
@@ -97,6 +129,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         startClock()
     }
 
+    // --- playing -------------------------------------------------------------
+
     fun select(cell: Int) {
         selected = cell
     }
@@ -105,25 +139,38 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         noteMode = !noteMode
     }
 
+    private val playing: Game?
+        get() = game?.takeIf { checkResult != CheckResult.SOLVED }
+
     fun input(digit: Int) {
-        val g = game ?: return
+        val g = playing ?: return
         val cell = selected
-        if (cell < 0 || checkResult == CheckResult.SOLVED) return
+        if (cell < 0) return
         val changed = if (noteMode) g.toggleNote(cell, digit) else g.writeValue(cell, digit)
         if (changed) edited()
     }
 
     fun erase() {
-        val g = game ?: return
-        if (selected < 0 || checkResult == CheckResult.SOLVED) return
-        if (g.erase(selected)) edited()
+        val g = playing ?: return
+        if (selected >= 0 && g.erase(selected)) edited()
+    }
+
+    fun clearAll() {
+        val g = playing ?: return
+        if (g.clearAll()) edited()
     }
 
     fun undo() {
-        val g = game ?: return
-        if (checkResult == CheckResult.SOLVED) return
-        val cell = g.undo() ?: return
-        selected = cell
+        val g = playing ?: return
+        val action = g.undo() ?: return
+        action.singleOrNull()?.let { selected = it.cell }
+        edited()
+    }
+
+    fun redo() {
+        val g = playing ?: return
+        val action = g.redo() ?: return
+        action.singleOrNull()?.let { selected = it.cell }
         edited()
     }
 
@@ -151,7 +198,105 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         save()
     }
 
-    // --- clock -------------------------------------------------------------
+    // --- custom games ----------------------------------------------------------
+
+    var customGames by mutableStateOf(loadCustomGames())
+        private set
+
+    /** The grid being typed in by the player in the editor. */
+    val editorGrid = IntArray(81)
+    var editorVersion by mutableIntStateOf(0)
+        private set
+    var editorSelected by mutableIntStateOf(-1)
+        private set
+    var editorBusy by mutableStateOf(false)
+        private set
+
+    /** Result of pressing "Done" in the editor; drives the error / naming dialogs. */
+    var editorAnalysis by mutableStateOf<Analysis?>(null)
+        private set
+
+    val editorClues: Int get() = editorGrid.count { it != 0 }
+
+    fun openEditor() {
+        editorGrid.fill(0)
+        editorSelected = -1
+        editorAnalysis = null
+        editorVersion++
+        screen = Screen.EDITOR
+    }
+
+    fun editorSelect(cell: Int) {
+        editorSelected = cell
+    }
+
+    fun editorInput(digit: Int) {
+        if (editorSelected < 0) return
+        editorGrid[editorSelected] = if (editorGrid[editorSelected] == digit) 0 else digit
+        editorVersion++
+    }
+
+    fun editorErase() {
+        if (editorSelected < 0 || editorGrid[editorSelected] == 0) return
+        editorGrid[editorSelected] = 0
+        editorVersion++
+    }
+
+    fun editorClear() {
+        editorGrid.fill(0)
+        editorVersion++
+    }
+
+    fun editorDone() {
+        if (editorBusy) return
+        editorBusy = true
+        val grid = editorGrid.copyOf()
+        viewModelScope.launch {
+            editorAnalysis = withContext(Dispatchers.Default) { Solver.analyze(grid) }
+            editorBusy = false
+        }
+    }
+
+    fun dismissAnalysis() {
+        editorAnalysis = null
+    }
+
+    fun defaultCustomName(): String {
+        val taken = customGames.map { it.name }.toSet()
+        return generateSequence(customGames.size + 1) { it + 1 }.map { "Custom $it" }.first { it !in taken }
+    }
+
+    /** Saves the verified editor grid under [name] and starts playing it. */
+    fun saveCustomAndPlay(name: String) {
+        val analysis = editorAnalysis ?: return
+        val solution = analysis.solution ?: return
+        val puzzle = CustomPuzzle(
+            id = System.currentTimeMillis(),
+            name = name.trim().ifEmpty { defaultCustomName() },
+            givens = editorGrid.copyOf(),
+            solution = solution,
+        )
+        customGames = customGames + puzzle
+        storeCustomGames()
+        editorAnalysis = null
+        playCustom(puzzle)
+    }
+
+    fun deleteCustom(puzzle: CustomPuzzle) {
+        customGames = customGames.filter { it.id != puzzle.id }
+        storeCustomGames()
+    }
+
+    private fun loadCustomGames(): List<CustomPuzzle> =
+        prefs.getString(KEY_CUSTOM, null)
+            ?.let { runCatching { CustomPuzzle.listFromJson(it) }.getOrNull() }
+            .orEmpty()
+
+    private fun storeCustomGames() {
+        prefs.edit().putString(KEY_CUSTOM, CustomPuzzle.listToJson(customGames)).apply()
+    }
+
+    // --- clock -----------------------------------------------------------------
 
     fun onResume() {
         resumed = true
@@ -200,5 +345,16 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         private const val KEY_GAME = "game"
+        private const val KEY_THEME = "theme"
+        private const val KEY_CUSTOM = "custom"
+
+        fun verdictMessage(v: Verdict): String = when (v) {
+            Verdict.TOO_FEW_CLUES -> "Enter at least 17 digits."
+            Verdict.CONFLICT -> "A digit repeats in a row, column or box."
+            Verdict.NO_SOLUTION -> "This puzzle has no solution."
+            Verdict.MULTIPLE_SOLUTIONS ->
+                "This puzzle has more than one solution. Any grid that follows the rules will count as solved."
+            Verdict.UNIQUE -> "This puzzle has exactly one solution."
+        }
     }
 }

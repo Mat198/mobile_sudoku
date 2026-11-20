@@ -11,8 +11,17 @@ enum class Difficulty(val label: String, val clues: Int) {
     CHALLENGER("Challenger", 17),
 }
 
-/** A puzzle with exactly one solution. Cells are indexed row * 9 + col; 0 means empty. */
+/** A puzzle and one of its solutions. Cells are indexed row * 9 + col; 0 means empty. */
 class Puzzle(val givens: IntArray, val solution: IntArray)
+
+/** Minimum number of givens a Sudoku needs to have a single solution. */
+const val MIN_CLUES = 17
+
+enum class Verdict { TOO_FEW_CLUES, CONFLICT, NO_SOLUTION, MULTIPLE_SOLUTIONS, UNIQUE }
+
+class Analysis(val verdict: Verdict, val solution: IntArray?) {
+    val playable: Boolean get() = solution != null
+}
 
 object Solver {
     /** Counts solutions of [grid], stopping once [limit] is reached. */
@@ -37,6 +46,21 @@ object Solver {
         }
         search()
         return count
+    }
+
+    /** True when two givens repeat a digit in a row, column or box. */
+    fun hasConflict(grid: IntArray): Boolean = State.from(grid) == null
+
+    /** True when [grid] is completely filled and obeys every row, column and box rule. */
+    fun isValidSolution(grid: IntArray): Boolean = grid.all { it in 1..9 } && !hasConflict(grid)
+
+    /** Checks a hand-entered puzzle before it can be played. */
+    fun analyze(grid: IntArray, minClues: Int = MIN_CLUES): Analysis {
+        if (grid.count { it != 0 } < minClues) return Analysis(Verdict.TOO_FEW_CLUES, null)
+        if (hasConflict(grid)) return Analysis(Verdict.CONFLICT, null)
+        val solution = solve(grid) ?: return Analysis(Verdict.NO_SOLUTION, null)
+        val verdict = if (countSolutions(grid, 2) > 1) Verdict.MULTIPLE_SOLUTIONS else Verdict.UNIQUE
+        return Analysis(verdict, solution)
     }
 
     /** Returns the first solution found, or null if the grid is unsolvable. */

@@ -3,6 +3,7 @@ package com.mat198.sudoku.engine
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import kotlin.random.Random
@@ -47,5 +48,57 @@ class GeneratorTest {
             val bc = (k % 3) * 3
             assertEquals(all, (0 until 9).map { s[(br + it / 3) * 9 + bc + it % 3] }.toSet())
         }
+    }
+}
+
+class AnalyzeTest {
+    private val seed = Generator.parse(
+        "000000010400000000020000000000050407008000300001090000300400200050100000000806000"
+    )
+
+    @Test
+    fun uniqueSeventeenCluePuzzleIsAccepted() {
+        val a = Solver.analyze(seed)
+        assertEquals(Verdict.UNIQUE, a.verdict)
+        assertArrayEquals(Solver.solve(seed), a.solution)
+    }
+
+    @Test
+    fun tooFewClues() {
+        val g = seed.copyOf().also { it[it.indexOfFirst { d -> d != 0 }] = 0 }
+        assertEquals(Verdict.TOO_FEW_CLUES, Solver.analyze(g).verdict)
+    }
+
+    @Test
+    fun repeatedDigitIsAConflict() {
+        // Row 0 already has a 1 at column 7.
+        val g = seed.copyOf().also { it[0] = 1 }
+        assertEquals(Verdict.CONFLICT, Solver.analyze(g).verdict)
+    }
+
+    @Test
+    fun noSolution() {
+        // Fill row 0 with 1..8 and put a 9 in column 8 lower down: the last cell of row 0 has no digit.
+        val g = IntArray(81)
+        for (c in 0 until 8) g[c] = c + 1
+        g[4 * 9 + 8] = 9
+        // Add unrelated clues to pass the 17-clue minimum without creating conflicts.
+        val extra = listOf(9 * 3 + 0 to 4, 9 * 3 + 1 to 5, 9 * 3 + 2 to 6, 9 * 6 + 0 to 7, 9 * 6 + 1 to 8,
+            9 * 6 + 2 to 9, 9 * 7 + 3 to 1, 9 * 7 + 4 to 2)
+        for ((cell, d) in extra) g[cell] = d
+        assertEquals(17, g.count { it != 0 })
+        assertEquals(false, Solver.hasConflict(g))
+        assertEquals(Verdict.NO_SOLUTION, Solver.analyze(g).verdict)
+    }
+
+    @Test
+    fun multipleSolutionsStillPlayable() {
+        val solution = Solver.solve(seed)!!
+        // Keep the first 30 cells of the solution: far from unique.
+        val g = IntArray(81) { if (it < 30) solution[it] else 0 }
+        val a = Solver.analyze(g)
+        assertEquals(Verdict.MULTIPLE_SOLUTIONS, a.verdict)
+        assertTrue(a.playable)
+        assertTrue(Solver.isValidSolution(a.solution!!))
     }
 }
