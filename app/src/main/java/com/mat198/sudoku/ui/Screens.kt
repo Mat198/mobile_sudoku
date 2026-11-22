@@ -22,12 +22,14 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,18 +55,22 @@ import com.mat198.sudoku.game.Screen
 @Composable
 fun SudokuApp(vm: GameViewModel, dark: Boolean) {
     SudokuTheme(dark) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(LocalInk.current.paper)
-                .safeDrawingPadding()
-        ) {
-            when (vm.screen) {
-                Screen.MENU -> MenuScreen(vm)
-                Screen.DIFFICULTY -> DifficultyScreen(vm)
-                Screen.GAME -> GameScreen(vm)
-                Screen.CUSTOM_LIST -> CustomListScreen(vm)
-                Screen.EDITOR -> EditorScreen(vm)
+        val ink = LocalInk.current
+        // Plain Text otherwise defaults to black, which disappears on the night background.
+        CompositionLocalProvider(LocalContentColor provides ink.given) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(ink.paper)
+                    .safeDrawingPadding()
+            ) {
+                when (vm.screen) {
+                    Screen.MENU -> MenuScreen(vm)
+                    Screen.DIFFICULTY -> DifficultyScreen(vm)
+                    Screen.GAME -> GameScreen(vm)
+                    Screen.CUSTOM_LIST -> CustomListScreen(vm)
+                    Screen.EDITOR -> EditorScreen(vm)
+                }
             }
         }
     }
